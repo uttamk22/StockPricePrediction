@@ -39,14 +39,14 @@ def tech_df_api_download(ticker):
         if ticker:
             url = f"https://www.alphavantage.co/query?function=TIME_SERIES_WEEKLY_ADJUSTED&symbol={ticker}.BSE&outputsize=full&apikey==KU5KBFD34SV59FIR&datatype=csv"
             technical_df = pd.read_csv(url)
-            technical_df.insert(loc=0, column='stock_code', value= ticker)
+            technical_df['stock_code'] = ticker
            
-            technical_df1 = technical_df.rename(columns= {'timestamp':'tradingdate', 'adjusted close':'adjusted_close', 'dividend amount': 'dividend_amount'}, inplace=False)
-            technical_df1.index = pd.to_datetime(technical_df1.tradingdate, format='%Y-%m-%d', errors='coerce')
+            technical_df2 = technical_df.rename(columns= {'timestamp':'tradingdate', 'adjusted close':'adjusted_close', 'dividend amount': 'dividend_amount'}, inplace=False)
+            technical_df2.index = pd.to_datetime(technical_df2.tradingdate, format='%Y-%m-%d', errors='coerce')
             #dropping column which are not correlated with the closing price 
-            technical_df2= technical_df1.drop(columns=['tradingdate', 'dividend_amount', 'volume'],inplace = False)
+            technical_df3= technical_df2.drop(columns=['tradingdate', 'dividend_amount', 'volume'],inplace = False)
             #create the file if doesn't exist or append the new stock data 
-            return technical_df2
+            return technical_df3
         else:
             print("Ticker is not passed")
     except:
@@ -226,18 +226,23 @@ def plot_animation(df):
     return lines
 
 # This sidebar UI is a little search engine to select stocks and timeframe , And predict based on that.
-def stock_select_predict( df):
+def stock_select_predict( df, df_stock, stock):
     
-    st.sidebar.markdown("# Stock Price Prediction Model")
+    
     timeframes = ['Week', 'Month']
-    # The user can pick which stock to slect for prediction.
-    stock_codes = df['stock_code'].unique()
-    stock = st.sidebar.selectbox("Select BSE500 Stock Ticker", stock_codes)
     stock_df = filter_input_data(stock,df )
-    df_stock = tech_df_api_download(stock)
-    tech_stock_df = filter_input_data(stock,df_stock)
-    st.write('Stock Price Chart for Last 2 Decades')
-    alt.Chart(st.line_chart(stock_df))  
+    if df_stock is not None:
+        tech_stock_df = filter_input_data(stock,df_stock)
+        
+        st.write('Stock Close Price Chart for Last 2 Decades')
+        alt.Chart(st.line_chart(tech_stock_df))
+    else:
+        tech_stock_df = None
+   
+        st.write('Stock Price Chart for Last 2 Decades')
+        
+        alt.Chart(st.line_chart(stock_df))  
+    
     timeframe = st.sidebar.selectbox("Select Future TimeFrame", timeframes)  
     check_action = st.button("CHECK ACCURACY")    
     return stock_df, timeframe, check_action, tech_stock_df
@@ -255,19 +260,26 @@ def main():
         st.sidebar.success('To continue select "Run the app".')
     elif app_mode == "Show the source code":
         readme_text.empty()
-        st.code(get_file_content_as_string("app.py"))
+        st.code(get_file_content_as_string("app2.py"))
     elif app_mode == "Run the app":
         readme_text.empty()
         run_the_app()
 
 
 def run_the_app():
-    input_path = "https://raw.githubusercontent.com/uttamk22/AIML/moneyplants/bse_stocks_technical_weekly_data_latest.csv"
+    #input_path = "https://raw.githubusercontent.com/uttamk22/AIML/moneyplants/bse_stocks_technical_weekly_data_latest.csv"
     input_path = "https://raw.githubusercontent.com/uttamk22/StockPricePrediction/main/bse_stocks_technical_weekly_data_1007.csv"
     #input_path = "https://github.com/uttamk22/AIML/blob/moneyplants/bse_stocks_technical_weekly_data_latest.csv"
     tech_df = load_data(input_path)
     df = create_input_data(tech_df)
-    stock_df, timeframe, check_action, tech_stock_df = stock_select_predict(df)
+    
+    st.sidebar.markdown("# Stock Price Prediction Model")
+    
+    # The user can pick which stock to slect for prediction.
+    stock_codes = df['stock_code'].unique()
+    stock = st.sidebar.selectbox("Select BSE500 Stock Ticker", stock_codes)
+    df_stock = tech_df_api_download(stock)
+    stock_df, timeframe, check_action, tech_stock_df = stock_select_predict(df,df_stock, stock )
     window = 28
     
     if tech_stock_df is not None:
